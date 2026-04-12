@@ -1,0 +1,46 @@
+# ── Secrets ────────────────────────────────────────────────────────────────
+# Environment files
+.env
+.env.*
+
+# Firebase / Google service account credentials
+*.json
+!pyproject.toml  # (not json, but safety net)
+
+# ── Python ─────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# ── Testing ─────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Editors / OS ─────────────────────────────────────────────────────────────
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+# (Dockerfile itself is fine to commit; ignore local override files)
+docker-compose.override.yml
