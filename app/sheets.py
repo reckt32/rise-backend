@@ -49,15 +49,20 @@ def _read_sheet(range_name: str) -> list[list[Any]]:
 # Helpers
 # ---------------------------------------------------------------------------
 
-_INVALID_VALUES = {"#N/A", "#REF!", "#VALUE!", "#ERROR!", "Loading...", "N/A", ""}
+_INVALID_PREFIXES = ("#",)  # catches #N/A, #REF!, and long error strings
+_INVALID_VALUES = {"N/A", "", "Loading...", "TICKER NOT FOUND"}
 
 
 def _clean(value: Any) -> Any:
     """Return None for any invalid / loading cell value."""
     if value is None:
         return None
-    if isinstance(value, str) and value.strip() in _INVALID_VALUES:
-        return None
+    if isinstance(value, str):
+        s = value.strip()
+        if s in _INVALID_VALUES:
+            return None
+        if s.startswith(_INVALID_PREFIXES):
+            return None  # catches '#N/A (Historical GOOGLEFINANCE...)', '#REF!', etc.
     return value
 
 
@@ -101,12 +106,19 @@ def fetch_sel_stock_list() -> list[dict]:
     if not rows:
         return []
 
-    # First row is headers; data starts from row 2
+    # The sheet may have blank rows before the actual header.
+    # Find the header row by looking for a row that contains 'CMP'.
     # Expected columns (0-indexed):
     # 0: NSECode, 1: CMP, 2: 50DMA, 3: 100DMA, 4: 200DMA,
     # 5: Output, 6: Diff from 200 DMA, 7: CAR Rating
+    header_idx = 0
+    for i, row in enumerate(rows):
+        if any(isinstance(cell, str) and cell.strip().upper() == "CMP" for cell in row):
+            header_idx = i
+            break
+
     stocks = []
-    for row in rows[1:]:
+    for row in rows[header_idx + 1:]:
         # Pad row to avoid index errors
         while len(row) < 8:
             row.append(None)
