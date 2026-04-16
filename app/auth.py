@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # Firebase Admin init (shared with snapshots.py)
 # ---------------------------------------------------------------------------
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 def _ensure_firebase_init():
@@ -41,13 +41,24 @@ def _ensure_firebase_init():
 
 
 async def verify_token(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> dict:
     """
     FastAPI dependency that verifies a Firebase ID token.
     Returns the decoded token payload on success.
     Raises 401 if missing or invalid.
+
+    With auto_error=False on HTTPBearer, CORS preflight OPTIONS requests
+    pass through without a 403, allowing the CORS middleware to respond.
     """
+    # Let OPTIONS preflight requests pass through for CORS
+    if request.method == "OPTIONS":
+        return {}
+
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Missing authorization token")
+
     _ensure_firebase_init()
     token = credentials.credentials
     try:
