@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 from typing import Any
 
 from google.oauth2.service_account import Credentials
@@ -20,6 +21,12 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 _service = None
 
 
+def _reset_service():
+    """Invalidate the cached Sheets service so it is rebuilt on next use."""
+    global _service
+    _service = None
+
+
 def _get_service():
     global _service
     if _service is None:
@@ -29,20 +36,28 @@ def _get_service():
     return _service
 
 
-def _read_sheet(range_name: str) -> list[list[Any]]:
+def _read_sheet(range_name: str, _retry: bool = True) -> list[list[Any]]:
     """Read a range from the configured spreadsheet."""
     service = _get_service()
-    result = (
-        service.spreadsheets()
-        .values()
-        .get(
-            spreadsheetId=settings.spreadsheet_id,
-            range=range_name,
-            valueRenderOption="UNFORMATTED_VALUE",
+    try:
+        result = (
+            service.spreadsheets()
+            .values()
+            .get(
+                spreadsheetId=settings.spreadsheet_id,
+                range=range_name,
+                valueRenderOption="UNFORMATTED_VALUE",
+            )
+            .execute()
         )
-        .execute()
-    )
-    return result.get("values", [])
+        return result.get("values", [])
+    except Exception as exc:
+        logger.warning("Sheets API call failed (%s); resetting service", exc)
+        _reset_service()
+        if _retry:
+            time.sleep(1)
+            return _read_sheet(range_name, _retry=False)
+        raise
 
 
 # ---------------------------------------------------------------------------
