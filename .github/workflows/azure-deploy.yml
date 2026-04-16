@@ -27,6 +27,6 @@ jobs:
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'rise-backend-app'      # ← change to your Web App name
+          app-name: 'rise-backend'      # ← change to your Web App name
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: .
