@@ -28,6 +28,10 @@ stock_data: list[dict] = []
 changed_tickers: set[str] = set()
 last_refreshed: datetime | None = None
 
+# Optional callback invoked at the start of every poll (used by main.py to
+# refresh the category cache so new sheets are picked up automatically).
+on_poll_start: list = []  # list of callables
+
 # ---------------------------------------------------------------------------
 # Market hours check
 # ---------------------------------------------------------------------------
@@ -76,6 +80,13 @@ def poll_job():
 
     try:
         logger.info("Starting poll job...")
+
+        # Fire registered hooks (e.g. category refresh from main.py)
+        for cb in on_poll_start:
+            try:
+                cb()
+            except Exception as cb_err:
+                logger.warning("on_poll_start callback failed: %s", cb_err)
 
         # 1. Fetch fresh data from Google Sheets (always required)
         new_data = fetch_sel_stock_list()

@@ -20,12 +20,11 @@ from app.models import (
 from app.sheets import fetch_sel_stock_list, fetch_category_map
 from app.filter import filter_stocks, map_trend, map_car
 from app.snapshots import get_recent_alerts
+import app.scheduler as _scheduler
 from app.scheduler import (
     start_scheduler,
     stop_scheduler,
     poll_job,
-    stock_data,
-    last_refreshed,
     is_market_open,
     get_next_open,
 )
@@ -61,11 +60,12 @@ def _refresh_categories():
 async def lifespan(app: FastAPI):
     """Startup / shutdown events."""
     logger.info("Starting RISE backend...")
-    # Load categories
+    # Register category refresh so it runs on every poll tick automatically
+    _scheduler.on_poll_start.append(_refresh_categories)
+    # Load categories + initial data
     _refresh_categories()
-    # Initial data load
     poll_job()
-    # Start scheduler
+    # Start scheduler — categories are refreshed on every poll tick
     start_scheduler()
     yield
     stop_scheduler()
@@ -154,11 +154,23 @@ async def alerts(user: dict = Depends(verify_token)):
 
 @app.get("/market-status", response_model=MarketStatusResponse)
 async def market_status(user: dict = Depends(verify_token)):
-    from app.scheduler import last_refreshed as lr
-
     now = datetime.now(IST)
+    lr = _scheduler.last_refreshed  # always read the live module attribute
     return MarketStatusResponse(
         is_open=is_market_open(now),
         next_open=get_next_open(now).isoformat(),
         last_refreshed=lr.isoformat() if lr else now.isoformat(),
     )
+
+
+@app.post("/refresh", status_code=200)
+async def force_refresh(user: dict = Depends(verify_token)):
+    """Force an immediate data + category refresh (useful after adding a new sheet)."""
+    try:
+        _refresh_categories()
+        poll_job()
+        return {"status": "ok", "categories": len(_category_list), "stocks": len(_scheduler.stock_data)}
+    except Exception as e:
+        logger.error("Force refresh failed: %s", e, exc_info=True)
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
