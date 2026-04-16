@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     firebase_client_email: str
 
     # CORS
-    allowed_origins: str = "http://localhost:3000"
+    allowed_origins: str = "http://localhost:3000,https://rise-frontend-sand.vercel.app"
 
     @property
     def origins_list(self) -> list[str]:
