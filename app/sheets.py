@@ -30,7 +30,14 @@ def _reset_service():
 def _get_service():
     global _service
     if _service is None:
-        creds_info = json.loads(settings.google_sheets_credentials_json)
+        raw = settings.google_sheets_credentials_json
+        try:
+            creds_info = json.loads(raw)
+        except json.JSONDecodeError:
+            # Azure App Settings converts \n escapes to real newlines,
+            # which breaks JSON string values (e.g. private_key).
+            # Replace literal newlines with \\n and retry.
+            creds_info = json.loads(raw.replace("\n", "\\n"))
         creds = Credentials.from_service_account_info(creds_info, scopes=SCOPES)
         _service = build("sheets", "v4", credentials=creds, cache_discovery=False)
     return _service
