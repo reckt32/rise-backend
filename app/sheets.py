@@ -172,32 +172,58 @@ def fetch_sel_stock_list() -> list[dict]:
 def fetch_category_map() -> dict[str, list[str]]:
     """
     Read the LIST sheet and return { category_name: [ticker, ...] }.
-    Each column header is a category name; tickers are listed below.
+
+    Sheet layout:
+      Row 0 — metadata (ignored)
+      Row 1 — category labels in each column, e.g. "(1)NIFTY MICROCAP 250"
+              Column 1 has "(16)FnOSTOCKS" (master list of ticker names)
+              Columns 5+ have index category labels
+      Row 2+ — tickers listed below each category column
     """
     rows = _read_sheet("LIST")
-    if not rows:
+    if not rows or len(rows) < 3:
         return {}
 
-    headers = rows[0]
+    # Row 1 contains category names
+    header_row = rows[1]
     category_map: dict[str, list[str]] = {}
 
-    for col_idx, header in enumerate(headers):
-        cat_name = _clean(header)
-        if cat_name is None:
+    for col_idx, header in enumerate(header_row):
+        raw = _clean(header)
+        if raw is None:
             continue
-        cat_name = str(cat_name).strip()
+        cat_name = str(raw).strip()
         if not cat_name:
             continue
 
+        # Only process columns that have a category label (starts with "(")
+        if not cat_name.startswith("("):
+            continue
+
+        # Strip the "(N)" prefix to get the display name, e.g. "(1)NIFTY MICROCAP 250" → "NIFTY MICROCAP 250"
+        paren_end = cat_name.find(")")
+        if paren_end != -1:
+            display_name = cat_name[paren_end + 1:].strip()
+        else:
+            display_name = cat_name
+
+        if not display_name:
+            continue
+
         tickers: list[str] = []
-        for row in rows[1:]:
+        for row in rows[2:]:  # Data starts at row 2
             if col_idx >= len(row):
                 continue
-            t = _strip_nse(row[col_idx])
-            if t:
+            cell = _clean(row[col_idx])
+            if cell is None:
+                continue
+            # Tickers in category columns are plain names (no NSE: prefix)
+            t = str(cell).strip().upper()
+            if t and not t.startswith("("):
                 tickers.append(t)
 
-        category_map[cat_name] = tickers
+        if tickers:
+            category_map[display_name] = tickers
 
     logger.info(
         "Built category map with %d categories", len(category_map)
