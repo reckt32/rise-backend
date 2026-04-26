@@ -42,12 +42,27 @@ _category_map: dict[str, list[str]] = {}
 _category_list: list[dict] = []
 
 
+def _category_sort_key(name: str) -> tuple:
+    """Sort key that pins NIFTY and BANKNIFTY categories to the top."""
+    upper = name.upper()
+    # Exact NIFTY/BANKNIFTY matches first, then partial matches
+    if upper in ("NIFTY", "NIFTY 50"):
+        return (0, upper)
+    if upper in ("BANKNIFTY", "BANK NIFTY", "NIFTY BANK"):
+        return (1, upper)
+    if "NIFTY" in upper or "BANKNIFTY" in upper:
+        return (2, upper)
+    return (3, upper)
+
+
 def _refresh_categories():
     global _category_map, _category_list
     _category_map = fetch_category_map()
+    # Sort so NIFTY and BANKNIFTY categories appear first
+    sorted_items = sorted(_category_map.items(), key=lambda item: _category_sort_key(item[0]))
     _category_list = [
         {"id": str(i + 1), "name": name, "stock_count": len(codes)}
-        for i, (name, codes) in enumerate(_category_map.items())
+        for i, (name, codes) in enumerate(sorted_items)
     ]
 
 

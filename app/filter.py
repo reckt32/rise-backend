@@ -3,7 +3,7 @@
 from typing import Optional
 
 # ---------------------------------------------------------------------------
-# Raw sheet value → internal API value mapping
+# Raw sheet value → internal API value mapping (used ONLY for alerts/snapshots)
 # ---------------------------------------------------------------------------
 
 _TREND_MAP = {
@@ -19,29 +19,29 @@ _CAR_MAP = {
     "TICKER NOT FOUND": None,
 }
 
-# Filter param → raw sheet Output value
+# Filter param → raw sheet Output value (filter param IS the raw sheet value)
 _FILTER_OUTPUT = {
-    "bull_run": "In Bull Run",
-    "bear_run": "In Bear Run",
-    "unconfirmed": "Unconfirmed",
+    "In Bull Run": "In Bull Run",
+    "In Bear Run": "In Bear Run",
+    "Unconfirmed": "Unconfirmed",
 }
 
 # Filter param → raw sheet CAR Rating value
 _FILTER_CAR = {
-    "meets_car": "Buy/Average Out",
-    "not_car": "Avoid/Hold",
+    "Buy/Average Out": "Buy/Average Out",
+    "Avoid/Hold": "Avoid/Hold",
 }
 
 
 def map_trend(raw: Optional[str]) -> Optional[str]:
-    """Map raw Output value to API trend value."""
+    """Map raw Output value to API trend value (used for alerts only)."""
     if raw is None:
         return None
     return _TREND_MAP.get(raw)
 
 
 def map_car(raw: Optional[str]) -> Optional[str]:
-    """Map raw CAR Rating value to API car_status value."""
+    """Map raw CAR Rating value to API car_status value (used for alerts only)."""
     if raw is None:
         return None
     return _CAR_MAP.get(raw)
@@ -55,14 +55,14 @@ def filter_stocks(
     """
     Filter stocks:
     1. Keep only stocks in category_tickers
-    2. Optionally filter by filter_type
+    2. Optionally filter by filter_type (raw sheet values)
     3. Sort by diff_200dma descending (nulls last)
     """
     # Category filter
     cat_set = set(t.upper() for t in category_tickers)
     filtered = [s for s in all_stocks if s["ticker"] in cat_set]
 
-    # Filter type
+    # Filter type — now uses raw sheet values directly
     if filter_type:
         if filter_type in _FILTER_OUTPUT:
             target = _FILTER_OUTPUT[filter_type]
@@ -80,7 +80,7 @@ def filter_stocks(
 
     filtered.sort(key=sort_key)
 
-    # Map to API response format
+    # Map to API response format — pass raw sheet values through directly
     result = []
     for s in filtered:
         result.append(
@@ -88,8 +88,8 @@ def filter_stocks(
                 "ticker": s["ticker"],
                 "cmp": s.get("cmp"),
                 "diff_200dma": s.get("diff_200dma"),
-                "trend": map_trend(s.get("output")),
-                "car_status": map_car(s.get("car_rating")),
+                "trend": s.get("output"),        # raw sheet value
+                "car_status": s.get("car_rating"),  # raw sheet value
                 "changed": s.get("changed", False),
             }
         )
